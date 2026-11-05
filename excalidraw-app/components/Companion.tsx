@@ -6,6 +6,8 @@ import { useI18n } from "@excalidraw/excalidraw/i18n";
 import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 import { useLayoutEffect, useState } from "react";
 
+import { CompanionArtwork } from "./CompanionArtwork";
+import { useCompanionRoutines } from "./useCompanionRoutines";
 import { useCompanionPlacement } from "./useCompanionPlacement";
 
 import "./Companion.scss";
@@ -77,6 +79,11 @@ export const Companion = ({
     modalOpen
   );
   const placement = useCompanionPlacement(active);
+  const routine = useCompanionRoutines(
+    app.ownerWindow,
+    active && !!placement,
+    reducedMotion,
+  );
 
   if (!active || !placement) {
     return null;
@@ -85,44 +92,7 @@ export const Companion = ({
   return (
     <div className="companion" style={placement}>
       <div role="img" aria-label={t("companion.description")}>
-        <svg viewBox="0 0 140 120" aria-hidden="true">
-          <ellipse
-            className="companion__shadow"
-            cx="70"
-            cy="112"
-            rx="40"
-            ry="5"
-          />
-          <g
-            className="companion__body"
-            style={{
-              animation: reducedMotion
-                ? "none"
-                : "companion-breathe 7s ease-in-out infinite",
-            }}
-          >
-            <path
-              className="companion__shape"
-              d="M19 89C12 74 25 65 29 51C34 31 43 20 62 23C80 11 99 28 101 44C106 58 125 64 120 85C117 105 100 109 78 107C56 112 28 110 19 89Z"
-            />
-            <g
-              className="companion__eyes"
-              style={{
-                animation: reducedMotion
-                  ? "none"
-                  : "companion-blink 6.7s infinite",
-              }}
-            >
-              <ellipse cx="57" cy="63" rx="3.5" ry="5" />
-              <ellipse cx="82" cy="63" rx="3.5" ry="5" />
-            </g>
-            <g className="companion__cheeks">
-              <ellipse cx="47" cy="73" rx="5" ry="3" />
-              <ellipse cx="92" cy="73" rx="5" ry="3" />
-            </g>
-            <path className="companion__smile" d="M65 76Q70 80 75 76" />
-          </g>
-        </svg>
+        <CompanionArtwork reducedMotion={reducedMotion} routine={routine} />
       </div>
       <button
         type="button"
