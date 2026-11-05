@@ -16,6 +16,8 @@ import { AppMainMenu } from "../components/AppMainMenu";
 import { Companion } from "../components/Companion";
 import { CompanionPreference } from "../components/CompanionPreference";
 
+import { mockCompanionEditorGeometry } from "./helpers/companionGeometry";
+
 const preferenceKey = "excalidraw-companion";
 const companion = () =>
   screen.queryByRole("img", { name: "Your drawing companion" });
@@ -32,6 +34,7 @@ const openMenu = async () => {
 
 describe("Companion visibility preference", () => {
   beforeEach(() => {
+    mockCompanionEditorGeometry();
     localStorage.removeItem(preferenceKey);
     vi.mocked(window.matchMedia).mockImplementation((query) => ({
       matches: false,
@@ -211,6 +214,7 @@ describe("Companion visibility preference", () => {
       document.body.append(iframe);
       const ownerDocument = iframe.contentDocument!;
       const ownerWindow = iframe.contentWindow! as Window & typeof globalThis;
+      mockCompanionEditorGeometry(ownerWindow);
       const mountNode = ownerDocument.createElement("div");
       ownerDocument.body.append(mountNode);
       const stored = new Map([[preferenceKey, "hidden"]]);

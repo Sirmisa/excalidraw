@@ -1,8 +1,5 @@
 .excalidraw .companion {
   position: absolute;
-  right: 30px;
-  bottom: 64px;
-  width: 90px;
   z-index: var(--zIndex-layerUI);
   pointer-events: none;
 
@@ -48,7 +45,7 @@
   &__hide {
     position: absolute;
     top: 0;
-    right: -4px;
+    right: 0;
     display: flex;
     align-items: center;
     justify-content: center;

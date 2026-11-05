@@ -6,6 +6,8 @@ import { useI18n } from "@excalidraw/excalidraw/i18n";
 import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 import { useLayoutEffect, useState } from "react";
 
+import { useCompanionPlacement } from "./useCompanionPlacement";
+
 import "./Companion.scss";
 
 export const Companion = ({
@@ -65,7 +67,7 @@ export const Companion = ({
       ownerDocument.removeEventListener("visibilitychange", onVisibilityChange);
   }, [app]);
 
-  if (
+  const active = !(
     !enabled ||
     documentHidden ||
     isLoading ||
@@ -73,12 +75,15 @@ export const Companion = ({
     viewModeEnabled ||
     openDialog ||
     modalOpen
-  ) {
+  );
+  const placement = useCompanionPlacement(active);
+
+  if (!active || !placement) {
     return null;
   }
 
   return (
-    <div className="companion">
+    <div className="companion" style={placement}>
       <div role="img" aria-label={t("companion.description")}>
         <svg viewBox="0 0 140 120" aria-hidden="true">
           <ellipse
