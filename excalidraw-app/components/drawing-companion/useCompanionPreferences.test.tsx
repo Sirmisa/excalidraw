@@ -56,7 +56,7 @@ it("does_not_copy_preferences_between_owning_windows", () => {
   const iframe = document.createElement("iframe");
   document.body.appendChild(iframe);
   const owner = iframe.contentWindow!;
-  const values = new Map([
+  const values = new Map<string, string>([
     [key, '{"version":1,"enabled":true,"tipsEnabled":false}'],
   ]);
   const storage = {
@@ -69,7 +69,7 @@ it("does_not_copy_preferences_between_owning_windows", () => {
   });
   const { result, rerender, unmount } = renderHook(
     ({ owner }) => useCompanionPreferences(owner),
-    { initialProps: { owner: window }, wrapper: StrictMode },
+    { initialProps: { owner: window as Window }, wrapper: StrictMode },
   );
   expect(result.current.preferences.enabled).toBe(false);
   rerender({ owner });

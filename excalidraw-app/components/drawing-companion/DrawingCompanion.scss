@@ -205,3 +205,8 @@
     transform: translateX(25px) scale(0.85);
   }
 }
+
+// Beat LayerUI's footer-child opt-in without changing shared footer styles.
+.excalidraw .layer-ui__wrapper .footer-center > .drawing-companion {
+  pointer-events: none;
+}

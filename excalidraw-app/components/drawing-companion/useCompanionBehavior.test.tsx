@@ -150,7 +150,9 @@ it("uses_only_the_owning_document_and_window", () => {
         active: true,
         tipsEnabled: true,
       }),
-    { initialProps: { ownerDocument: document, ownerWindow: window } },
+    {
+      initialProps: { ownerDocument: document, ownerWindow: window as Window },
+    },
   );
   rerender({ ownerDocument: ownerDoc, ownerWindow: owner });
   expect(setTimeoutSpy).toHaveBeenCalledTimes(2);
