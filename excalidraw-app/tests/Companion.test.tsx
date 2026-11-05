@@ -15,6 +15,7 @@ import ExcalidrawApp from "../App";
 import { Companion } from "../components/Companion";
 
 import { mockCompanionEditorGeometry } from "./helpers/companionGeometry";
+import { withOwnedEditor } from "./helpers/ownedEditor";
 
 describe("application Companion", () => {
   beforeEach(() => {
@@ -251,93 +252,76 @@ describe("application Companion", () => {
   });
 
   it("uses its mounted document and window and cleans up after Strict Mode unmount", async () => {
-    const iframe = document.createElement("iframe");
-    document.body.append(iframe);
-    const ownerDocument = iframe.contentDocument!;
-    const ownerWindow = iframe.contentWindow! as Window & typeof globalThis;
-    mockCompanionEditorGeometry(ownerWindow);
-    const mountNode = ownerDocument.createElement("div");
-    ownerDocument.body.append(mountNode);
-    const motion = Object.assign(new ownerWindow.EventTarget(), {
-      matches: false,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-    });
-    const addMotion = vi.spyOn(motion, "addEventListener");
-    const removeMotion = vi.spyOn(motion, "removeEventListener");
-    const addVisibility = vi.spyOn(ownerDocument, "addEventListener");
-    const removeVisibility = vi.spyOn(ownerDocument, "removeEventListener");
-    const ownedMatchMedia = vi.fn(() => motion as MediaQueryList);
-    Object.defineProperties(ownerWindow, {
-      matchMedia: { value: ownedMatchMedia },
-      requestAnimationFrame: {
-        value: window.requestAnimationFrame.bind(window),
-      },
-      cancelAnimationFrame: { value: window.cancelAnimationFrame.bind(window) },
-      ResizeObserver: { value: window.ResizeObserver },
-    });
-    Object.defineProperty(ownerDocument, "fonts", { value: document.fonts });
-    Object.defineProperty(
-      ownerWindow.HTMLCanvasElement.prototype,
-      "getContext",
-      {
-        value: window.HTMLCanvasElement.prototype.getContext,
-      },
-    );
-    const rendered = await render(
-      <StrictMode>
-        <Excalidraw ownerDocument={ownerDocument}>
-          <Companion enabled onHide={() => {}} />
-        </Excalidraw>
-      </StrictMode>,
-      {
-        container: mountNode,
-        baseElement: ownerDocument.body,
-      },
-    );
-    const image = rendered.getByRole("img", { name: "Your drawing companion" });
-    expect(image.ownerDocument).toBe(ownerDocument);
-    expect(ownedMatchMedia).toHaveBeenCalledWith(
-      "(prefers-reduced-motion: reduce)",
-    );
-    expect(window.matchMedia).not.toHaveBeenCalledWith(
-      "(prefers-reduced-motion: reduce)",
-    );
+    await withOwnedEditor(
+      document,
+      async ({ ownerDocument, ownerWindow, renderOwned }) => {
+        const motion = Object.assign(new ownerWindow.EventTarget(), {
+          matches: false,
+          media: "(prefers-reduced-motion: reduce)",
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+        });
+        const addMotion = vi.spyOn(motion, "addEventListener");
+        const removeMotion = vi.spyOn(motion, "removeEventListener");
+        const addVisibility = vi.spyOn(ownerDocument, "addEventListener");
+        const removeVisibility = vi.spyOn(ownerDocument, "removeEventListener");
+        const ownedMatchMedia = vi.fn(() => motion as MediaQueryList);
+        Object.defineProperties(ownerWindow, {
+          matchMedia: { value: ownedMatchMedia },
+        });
 
-    Object.defineProperty(document, "hidden", {
-      configurable: true,
-      value: true,
-    });
-    fireEvent(document, new Event("visibilitychange"));
-    expect(image).toBeVisible();
-    Object.defineProperty(ownerDocument, "hidden", {
-      configurable: true,
-      value: true,
-    });
-    fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
-    expect(
-      rendered.queryByRole("img", { name: "Your drawing companion" }),
-    ).not.toBeInTheDocument();
-    Object.defineProperty(ownerDocument, "hidden", {
-      configurable: true,
-      value: false,
-    });
-    fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
-    expect(
-      rendered.getAllByRole("img", { name: "Your drawing companion" }),
-    ).toHaveLength(1);
+        const rendered = await renderOwned(
+          <StrictMode>
+            <Excalidraw ownerDocument={ownerDocument}>
+              <Companion enabled onHide={() => {}} />
+            </Excalidraw>
+          </StrictMode>,
+        );
+        const image = rendered.getByRole("img", {
+          name: "Your drawing companion",
+        });
+        expect(image.ownerDocument).toBe(ownerDocument);
+        expect(ownedMatchMedia).toHaveBeenCalledWith(
+          "(prefers-reduced-motion: reduce)",
+        );
+        expect(window.matchMedia).not.toHaveBeenCalledWith(
+          "(prefers-reduced-motion: reduce)",
+        );
 
-    rendered.unmount();
-    for (const [event, listener] of addMotion.mock.calls) {
-      expect(removeMotion).toHaveBeenCalledWith(event, listener);
-    }
-    for (const [event, listener] of addVisibility.mock.calls.filter(
-      ([event]) => event === "visibilitychange",
-    )) {
-      expect(removeVisibility).toHaveBeenCalledWith(event, listener);
-    }
-    iframe.remove();
+        Object.defineProperty(document, "hidden", {
+          configurable: true,
+          value: true,
+        });
+        fireEvent(document, new Event("visibilitychange"));
+        expect(image).toBeVisible();
+        Object.defineProperty(ownerDocument, "hidden", {
+          configurable: true,
+          value: true,
+        });
+        fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
+        expect(
+          rendered.queryByRole("img", { name: "Your drawing companion" }),
+        ).not.toBeInTheDocument();
+        Object.defineProperty(ownerDocument, "hidden", {
+          configurable: true,
+          value: false,
+        });
+        fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
+        expect(
+          rendered.getAllByRole("img", { name: "Your drawing companion" }),
+        ).toHaveLength(1);
+
+        rendered.unmount();
+        for (const [event, listener] of addMotion.mock.calls) {
+          expect(removeMotion).toHaveBeenCalledWith(event, listener);
+        }
+        for (const [event, listener] of addVisibility.mock.calls.filter(
+          ([event]) => event === "visibilitychange",
+        )) {
+          expect(removeVisibility).toHaveBeenCalledWith(event, listener);
+        }
+      },
+    );
   });
 });

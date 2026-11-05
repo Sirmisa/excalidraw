@@ -17,6 +17,7 @@ import { Companion } from "../components/Companion";
 import { CompanionPreference } from "../components/CompanionPreference";
 
 import { mockCompanionEditorGeometry } from "./helpers/companionGeometry";
+import { withOwnedEditor } from "./helpers/ownedEditor";
 
 const preferenceKey = "excalidraw-companion";
 const companion = () =>
@@ -210,105 +211,85 @@ describe("Companion visibility preference", () => {
     "uses its mounted editor window, including unavailable storage (%s)",
     async (blocked) => {
       localStorage.setItem(preferenceKey, "shown");
-      const iframe = document.createElement("iframe");
-      document.body.append(iframe);
-      const ownerDocument = iframe.contentDocument!;
-      const ownerWindow = iframe.contentWindow! as Window & typeof globalThis;
-      mockCompanionEditorGeometry(ownerWindow);
-      const mountNode = ownerDocument.createElement("div");
-      ownerDocument.body.append(mountNode);
-      const stored = new Map([[preferenceKey, "hidden"]]);
-      const ownedStorage: Storage = {
-        get length() {
-          return stored.size;
-        },
-        clear: () => stored.clear(),
-        key: (index) => Array.from(stored.keys())[index] ?? null,
-        getItem: (key) => stored.get(key) ?? null,
-        setItem: (key, value) => {
-          stored.set(key, value);
-        },
-        removeItem: (key) => {
-          stored.delete(key);
-        },
-      };
-      Object.defineProperties(ownerWindow, {
-        localStorage: {
-          get: () => {
-            if (blocked) {
-              throw new ownerWindow.DOMException("Storage unavailable");
-            }
-            return ownedStorage;
-          },
-        },
-        matchMedia: { value: window.matchMedia },
-        requestAnimationFrame: {
-          value: window.requestAnimationFrame.bind(window),
-        },
-        cancelAnimationFrame: {
-          value: window.cancelAnimationFrame.bind(window),
-        },
-        ResizeObserver: { value: window.ResizeObserver },
-      });
-      Object.defineProperty(ownerDocument, "fonts", { value: document.fonts });
-      Object.defineProperty(
-        ownerWindow.HTMLCanvasElement.prototype,
-        "getContext",
-        {
-          value: window.HTMLCanvasElement.prototype.getContext,
-        },
-      );
-      const application = await render(
-        <StrictMode>
-          <Excalidraw ownerDocument={ownerDocument}>
-            <CompanionPreference>
-              {(enabled, onChange) => (
-                <>
-                  <AppMainMenu
-                    companionEnabled={enabled}
-                    onToggleCompanion={() => onChange(!enabled)}
-                    onCollabDialogOpen={() => {}}
-                    isCollaborating={false}
-                    isCollabEnabled={false}
-                    theme="light"
-                    refresh={() => {}}
-                  />
-                  <Companion enabled={enabled} onHide={() => onChange(false)} />
-                </>
-              )}
-            </CompanionPreference>
-          </Excalidraw>
-        </StrictMode>,
-        { container: mountNode, baseElement: ownerDocument.body },
-      );
-      try {
-        const image = () =>
-          application.queryByRole("img", { name: "Your drawing companion" });
-        if (blocked) {
+      await withOwnedEditor(
+        document,
+        async ({ ownerDocument, ownerWindow, renderOwned }) => {
+          const stored = new Map([[preferenceKey, "hidden"]]);
+          const ownedStorage: Storage = {
+            get length() {
+              return stored.size;
+            },
+            clear: () => stored.clear(),
+            key: (index) => Array.from(stored.keys())[index] ?? null,
+            getItem: (key) => stored.get(key) ?? null,
+            setItem: (key, value) => {
+              stored.set(key, value);
+            },
+            removeItem: (key) => {
+              stored.delete(key);
+            },
+          };
+          Object.defineProperties(ownerWindow, {
+            localStorage: {
+              get: () => {
+                if (blocked) {
+                  throw new ownerWindow.DOMException("Storage unavailable");
+                }
+                return ownedStorage;
+              },
+            },
+          });
+
+          const application = await renderOwned(
+            <StrictMode>
+              <Excalidraw ownerDocument={ownerDocument}>
+                <CompanionPreference>
+                  {(enabled, onChange) => (
+                    <>
+                      <AppMainMenu
+                        companionEnabled={enabled}
+                        onToggleCompanion={() => onChange(!enabled)}
+                        onCollabDialogOpen={() => {}}
+                        isCollaborating={false}
+                        isCollabEnabled={false}
+                        theme="light"
+                        refresh={() => {}}
+                      />
+                      <Companion
+                        enabled={enabled}
+                        onHide={() => onChange(false)}
+                      />
+                    </>
+                  )}
+                </CompanionPreference>
+              </Excalidraw>
+            </StrictMode>,
+          );
+          const image = () =>
+            application.queryByRole("img", { name: "Your drawing companion" });
+          if (blocked) {
+            expect(image()).toBeVisible();
+            fireEvent.click(
+              application.getByRole("button", { name: "Hide companion" }),
+            );
+          }
+          expect(image()).not.toBeInTheDocument();
+          fireEvent.click(application.getByTestId("main-menu-trigger"));
+          fireEvent.click(
+            application.getByRole("menuitem", { name: "Show companion" }),
+          );
           expect(image()).toBeVisible();
+          if (!blocked) {
+            expect(stored.get(preferenceKey)).toBe("shown");
+          }
           fireEvent.click(
             application.getByRole("button", { name: "Hide companion" }),
           );
-        }
-        expect(image()).not.toBeInTheDocument();
-        fireEvent.click(application.getByTestId("main-menu-trigger"));
-        fireEvent.click(
-          application.getByRole("menuitem", { name: "Show companion" }),
-        );
-        expect(image()).toBeVisible();
-        if (!blocked) {
-          expect(stored.get(preferenceKey)).toBe("shown");
-        }
-        fireEvent.click(
-          application.getByRole("button", { name: "Hide companion" }),
-        );
-        expect(image()).not.toBeInTheDocument();
-        expect(localStorage.getItem(preferenceKey)).toBe("shown");
-        expect([...stored]).toEqual([[preferenceKey, "hidden"]]);
-      } finally {
-        application.unmount();
-        iframe.remove();
-      }
+          expect(image()).not.toBeInTheDocument();
+          expect(localStorage.getItem(preferenceKey)).toBe("shown");
+          expect([...stored]).toEqual([[preferenceKey, "hidden"]]);
+        },
+      );
     },
   );
 
