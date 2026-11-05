@@ -1,0 +1,108 @@
+.excalidraw .companion {
+  position: absolute;
+  z-index: var(--zIndex-layerUI);
+  pointer-events: none;
+
+  svg {
+    display: block;
+    width: 100%;
+    overflow: visible;
+  }
+
+  &__body {
+    transform-origin: 70px 108px;
+  }
+
+  &__shape {
+    fill: #cce6bc;
+    stroke: #596459;
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+  }
+
+  &__eyes {
+    fill: #384937;
+    transform-origin: 70px 63px;
+  }
+
+  &__cheeks {
+    fill: #a4cc9a;
+    opacity: 0.65;
+  }
+
+  &__smile {
+    fill: none;
+    stroke: #52624a;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+  }
+
+  &__shadow {
+    fill: #d8d3dc;
+    opacity: 0.22;
+  }
+
+  &__bubble {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 12px);
+    box-sizing: border-box;
+    padding: 12px 16px;
+    overflow: hidden;
+    border: 1px solid var(--default-border-color);
+    border-radius: 12px;
+    color: var(--text-primary-color);
+    background: var(--island-bg-color);
+    font-size: 14px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    user-select: none;
+  }
+
+  &__hide {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--default-border-color);
+    border-radius: 50%;
+    color: var(--text-primary-color);
+    background: var(--island-bg-color);
+    cursor: pointer;
+    pointer-events: auto;
+    font-size: 18px;
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 3px;
+    }
+  }
+}
+
+@keyframes companion-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.025, 0.97);
+  }
+}
+
+@keyframes companion-blink {
+  0%,
+  44%,
+  47%,
+  100% {
+    transform: scaleY(1);
+  }
+  45%,
+  46% {
+    transform: scaleY(0.09);
+  }
+}

@@ -1,0 +1,103 @@
+.excalidraw .companion {
+  &__prop {
+    stroke: #76654e;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &__cookie {
+    animation: companion-nibble 3s ease-in-out infinite;
+    transform-origin: 94px 82px;
+  }
+
+  &__cup {
+    animation: companion-sip 3s ease-in-out infinite;
+    transform-origin: 97px 86px;
+  }
+
+  &__sleep-eyes {
+    fill: none;
+    stroke: #52624a;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  &__sleep-z {
+    animation: companion-sleepy 4s ease-out infinite;
+  }
+
+  &__pencil {
+    animation: companion-doodle 1.8s ease-in-out infinite;
+    transform-origin: 100px 87px;
+  }
+}
+
+@keyframes companion-chew {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.025, 0.96);
+  }
+}
+
+@keyframes companion-nibble {
+  0%,
+  65%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25%,
+  40% {
+    transform: translate(-12px, -6px);
+  }
+}
+
+@keyframes companion-sip {
+  0%,
+  70%,
+  100% {
+    transform: rotate(0);
+  }
+  25%,
+  45% {
+    transform: translate(-8px, -9px) rotate(-18deg);
+  }
+}
+
+@keyframes companion-sleepy {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  65% {
+    opacity: 0.8;
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes companion-doodle {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: translate(-4px, 1px) rotate(8deg);
+  }
+}
+
+@keyframes companion-step-out {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  25%,
+  75% {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}

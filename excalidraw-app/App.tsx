@@ -101,6 +101,8 @@ import Collab, {
 } from "./collab/Collab";
 import { AppFooter } from "./components/AppFooter";
 import { AppMainMenu } from "./components/AppMainMenu";
+import { Companion } from "./components/Companion";
+import { CompanionPreference } from "./components/CompanionPreference";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
 import {
   ExportToExcalidrawPlus,
@@ -1035,13 +1037,25 @@ const ExcalidrawWrapper = () => {
           }
         }}
       >
-        <AppMainMenu
-          onCollabDialogOpen={onCollabDialogOpen}
-          isCollaborating={isCollaborating}
-          isCollabEnabled={isCollabAvailable}
-          theme={appTheme}
-          refresh={() => forceRefresh((prev) => !prev)}
-        />
+        <CompanionPreference>
+          {(companionEnabled, setCompanionEnabled) => (
+            <>
+              <AppMainMenu
+                companionEnabled={companionEnabled}
+                onToggleCompanion={() => setCompanionEnabled(!companionEnabled)}
+                onCollabDialogOpen={onCollabDialogOpen}
+                isCollaborating={isCollaborating}
+                isCollabEnabled={isCollabAvailable}
+                theme={appTheme}
+                refresh={() => forceRefresh((prev) => !prev)}
+              />
+              <Companion
+                enabled={companionEnabled}
+                onHide={() => setCompanionEnabled(false)}
+              />
+            </>
+          )}
+        </CompanionPreference>
         <AppWelcomeScreen
           onCollabDialogOpen={onCollabDialogOpen}
           isCollabEnabled={isCollabAvailable}
