@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 import {
   useApp,
   useEditorInterface,
@@ -38,6 +40,44 @@ export const DrawingCompanion = ({
     sidebarDocked &&
     editorInterface.canFitSidebar
   );
+  const watchModals =
+    preferences.enabled &&
+    editorInterface.formFactor !== "phone" &&
+    defaultUIEnabled &&
+    !appState.zenModeEnabled &&
+    !suppressed;
+  const ownerDocument = app.ownerDocument;
+  const ownerWindow = app.ownerWindow;
+  const [modalOpen, setModalOpen] = useState(false);
+  const modalOpenRef = useRef(false);
+  useEffect(() => {
+    if (!watchModals) {
+      modalOpenRef.current = false;
+      setModalOpen(false);
+      return;
+    }
+    // Library and confirmation dialogs also own local state. Their portals
+    // block this owning document, even when they do not set openDialog.
+    // Target Modal portals; closed color pickers also keep aria-modal markup.
+    const checkModals = () => {
+      const next = !!ownerDocument.querySelector(
+        '.excalidraw-modal-container .Modal[aria-modal="true"]',
+      );
+      if (modalOpenRef.current !== next) {
+        modalOpenRef.current = next;
+        setModalOpen(next);
+      }
+    };
+    const observer = new ownerWindow.MutationObserver(checkModals);
+    observer.observe(ownerDocument.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["role", "aria-modal"],
+    });
+    checkModals();
+    return () => observer.disconnect();
+  }, [ownerDocument, ownerWindow, watchModals]);
   const active =
     preferences.enabled &&
     editorInterface.formFactor !== "phone" &&
@@ -46,6 +86,7 @@ export const DrawingCompanion = ({
     !appState.openDialog &&
     !appState.errorMessage &&
     !overwriteConfirm.active &&
+    !modalOpen &&
     !suppressed &&
     (!appState.openSidebar || sidebarDockedAndFits);
   const { snapshot, reducedMotion, paused } = useCompanionBehavior({

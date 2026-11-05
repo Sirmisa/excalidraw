@@ -9,14 +9,20 @@ import type { CompanionSnapshot } from "./behavior";
 const idle: CompanionSnapshot = { pose: "idle", bubble: null };
 const onToggleTips = vi.fn();
 const onHide = vi.fn();
-const Harness = ({ snapshot = idle }: { snapshot?: CompanionSnapshot }) => (
+const Harness = ({
+  snapshot = idle,
+  tipsEnabled = true,
+}: {
+  snapshot?: CompanionSnapshot;
+  tipsEnabled?: boolean;
+}) => (
   <Excalidraw>
     <Footer>
       <DrawingCompanionView
         snapshot={snapshot}
         reducedMotion={false}
         paused={false}
-        tipsEnabled
+        tipsEnabled={tipsEnabled}
         onToggleTips={onToggleTips}
         onHide={onHide}
       />
@@ -59,7 +65,7 @@ it("escape_restores_trigger_focus", async () => {
   trigger().focus();
   fireEvent.keyDown(trigger(), { key: "ArrowDown" });
   const menu = await screen.findByRole("menu");
-  const item = screen.getByRole("menuitem", { name: "Drawing tips" });
+  const item = screen.getByRole("menuitemcheckbox", { name: "Drawing tips" });
   item.focus();
   fireEvent.keyDown(menu, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
@@ -74,7 +80,9 @@ it("settings_call_their_callbacks_without_changing_the_canvas", async () => {
   const selection = window.h.state.selectedElementIds;
   const tool = window.h.state.activeTool;
   await open();
-  fireEvent.click(screen.getByRole("menuitem", { name: "Drawing tips" }));
+  fireEvent.click(
+    screen.getByRole("menuitemcheckbox", { name: "Drawing tips" }),
+  );
   expect(onToggleTips).toHaveBeenCalledTimes(1);
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   await open();
@@ -103,4 +111,25 @@ it("automatic_bubbles_do_not_move_focus_or_announce_alerts", async () => {
   ).toBeGreaterThan(0);
   expect(screen.queryByRole("menu")).toBeNull();
   expect(screen.getByText(/pan the canvas/)).toBeVisible();
+});
+
+it("tips_toggle_exposes_both_accessible_checked_states", async () => {
+  const { rerender } = render(<Harness tipsEnabled />);
+  await screen.findByRole("button", { name: "Drawing companion" });
+  await open();
+  fireEvent.click(
+    screen.getByRole("menuitemcheckbox", {
+      name: "Drawing tips",
+      checked: true,
+    }),
+  );
+  expect(onToggleTips).toHaveBeenCalledTimes(1);
+  rerender(<Harness tipsEnabled={false} />);
+  await open();
+  expect(
+    screen.getByRole("menuitemcheckbox", {
+      name: "Drawing tips",
+      checked: false,
+    }),
+  ).toBeVisible();
 });

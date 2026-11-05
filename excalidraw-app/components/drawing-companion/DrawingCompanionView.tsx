@@ -97,6 +97,8 @@ export const DrawingCompanionView = ({
           onSelect={closeMenu}
         >
           <DropdownMenu.ItemCheckbox
+            role="menuitemcheckbox"
+            aria-checked={tipsEnabled}
             checked={tipsEnabled}
             onSelect={onToggleTips}
           >
