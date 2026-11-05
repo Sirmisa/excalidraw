@@ -101,6 +101,7 @@ import Collab, {
 } from "./collab/Collab";
 import { AppFooter } from "./components/AppFooter";
 import { AppMainMenu } from "./components/AppMainMenu";
+import { Companion } from "./components/Companion";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
 import {
   ExportToExcalidrawPlus,
@@ -374,6 +375,7 @@ const initializeScene = async (opts: {
 
 const ExcalidrawWrapper = () => {
   const excalidrawAPI = useExcalidrawAPI();
+  const [companionEnabled, setCompanionEnabled] = useState(true);
 
   const [errorMessage, setErrorMessage] = useState("");
   const isCollabDisabled = isRunningInIframe();
@@ -1036,11 +1038,17 @@ const ExcalidrawWrapper = () => {
         }}
       >
         <AppMainMenu
+          companionEnabled={companionEnabled}
+          onToggleCompanion={() => setCompanionEnabled((enabled) => !enabled)}
           onCollabDialogOpen={onCollabDialogOpen}
           isCollaborating={isCollaborating}
           isCollabEnabled={isCollabAvailable}
           theme={appTheme}
           refresh={() => forceRefresh((prev) => !prev)}
+        />
+        <Companion
+          enabled={companionEnabled}
+          onHide={() => setCompanionEnabled(false)}
         />
         <AppWelcomeScreen
           onCollabDialogOpen={onCollabDialogOpen}
