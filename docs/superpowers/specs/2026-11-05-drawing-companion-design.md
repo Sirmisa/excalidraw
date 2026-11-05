@@ -1,7 +1,7 @@
 # Drawing companion
 
 Date: 2026-11-05
-Status: Proposed design; awaiting user approval before implementation.
+Status: Approved by the user on 2026-11-05; ready for implementation planning.
 
 ## Intent
 
@@ -28,8 +28,8 @@ that require the user to stop drawing.
 - Start with an activity roughly every 45–90 seconds and a drawing tip every
   8–12 minutes. These are tuning values, not user-facing promises.
 
-The user approved the behavior proposal, placement, and rendering approach.
-Approval of this written design is still required.
+The user approved the behavior proposal, placement, rendering approach, and
+this written design.
 
 ## Goals, non-goals, and anti-goals
 
