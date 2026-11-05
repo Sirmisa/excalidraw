@@ -2,7 +2,19 @@
   "companion": {
     "description": "Your drawing companion",
     "hide": "Hide companion",
-    "show": "Show companion"
+    "show": "Show companion",
+    "remarks": {
+      "eating": "A tiny snack break for me.",
+      "drinking": "A little sip. No hurry.",
+      "sleeping": "Resting my eyes for a moment.",
+      "drawing": "Working on my tiny masterpiece.",
+      "bathroom": "Back in a moment."
+    },
+    "tips": {
+      "room": "Leave a little room around your ideas.",
+      "sketch": "A small sketch can be a good place to start.",
+      "label": "A simple label can make an idea clearer."
+    }
   },
   "labels": {
     "signUp": "Sign up",

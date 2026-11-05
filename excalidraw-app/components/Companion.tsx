@@ -8,7 +8,11 @@ import { useLayoutEffect, useState } from "react";
 
 import { CompanionArtwork } from "./CompanionArtwork";
 import { useCompanionRoutines } from "./useCompanionRoutines";
-import { useCompanionPlacement } from "./useCompanionPlacement";
+import {
+  COMPANION_BUBBLE_HEIGHT,
+  COMPANION_BUBBLE_WIDTH,
+  useCompanionPlacement,
+} from "./useCompanionPlacement";
 
 import "./Companion.scss";
 
@@ -79,8 +83,8 @@ export const Companion = ({
     modalOpen
   );
   const placement = useCompanionPlacement(active);
-  const routine = useCompanionRoutines(
-    app.ownerWindow,
+  const { routine, text } = useCompanionRoutines(
+    app,
     active && !!placement,
     reducedMotion,
   );
@@ -91,6 +95,17 @@ export const Companion = ({
 
   return (
     <div className="companion" style={placement}>
+      {text && (
+        <div
+          className="companion__bubble"
+          style={{
+            width: COMPANION_BUBBLE_WIDTH,
+            maxHeight: COMPANION_BUBBLE_HEIGHT,
+          }}
+        >
+          {t(text)}
+        </div>
+      )}
       <div role="img" aria-label={t("companion.description")}>
         <CompanionArtwork reducedMotion={reducedMotion} routine={routine} />
       </div>
