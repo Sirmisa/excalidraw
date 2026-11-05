@@ -14,8 +14,11 @@ import {
 import ExcalidrawApp from "../App";
 import { Companion } from "../components/Companion";
 
+import { mockCompanionEditorGeometry } from "./helpers/companionGeometry";
+
 describe("application Companion", () => {
   beforeEach(() => {
+    mockCompanionEditorGeometry();
     vi.mocked(window.matchMedia).mockImplementation((query) => ({
       matches: false,
       media: query,
@@ -252,6 +255,7 @@ describe("application Companion", () => {
     document.body.append(iframe);
     const ownerDocument = iframe.contentDocument!;
     const ownerWindow = iframe.contentWindow! as Window & typeof globalThis;
+    mockCompanionEditorGeometry(ownerWindow);
     const mountNode = ownerDocument.createElement("div");
     ownerDocument.body.append(mountNode);
     const motion = Object.assign(new ownerWindow.EventTarget(), {
