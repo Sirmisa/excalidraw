@@ -4,7 +4,7 @@ import type { CompanionSnapshot, CompanionClock } from "./behavior";
 
 let scheduler: ReturnType<typeof createCompanionScheduler>;
 let snapshots: CompanionSnapshot[];
-let random: ReturnType<typeof vi.fn<() => number>>;
+let random = vi.fn(() => 0);
 const clock: CompanionClock = {
   now: () => Date.now(),
   setTimeout: (callback, delay) => window.setTimeout(callback, delay),
@@ -18,7 +18,12 @@ beforeEach(() => {
   vi.setSystemTime(0);
   snapshots = [];
   random = vi.fn(() => 0);
-  scheduler = createCompanionScheduler({ clock, random, tipsEnabled: true, onChange: (snapshot) => snapshots.push(snapshot) });
+  scheduler = createCompanionScheduler({
+    clock,
+    random,
+    tipsEnabled: true,
+    onChange: (snapshot) => snapshots.push(snapshot),
+  });
 });
 afterEach(() => {
   scheduler.dispose();
@@ -53,7 +58,10 @@ it("uses_maximum_activity_and_duration_bounds", () => {
   expect(latest().pose).toBe("idle");
 });
 
-it.each([[0, 480_000], [1 - Number.EPSILON, 720_000]])("tips_begin_after_480000_to_720000ms (%s)", (value, delay) => {
+it.each([
+  [0, 480_000],
+  [1 - Number.EPSILON, 720_000],
+])("tips_begin_after_480000_to_720000ms (%s)", (value, delay) => {
   random.mockReturnValue(value);
   scheduler.setActive(true);
   advance(delay - 1);

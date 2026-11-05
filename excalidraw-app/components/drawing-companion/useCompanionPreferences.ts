@@ -1,18 +1,37 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { DEFAULT_COMPANION_PREFERENCES, readCompanionPreferences, writeCompanionPreferences } from "./preferences";
+import {
+  DEFAULT_COMPANION_PREFERENCES,
+  readCompanionPreferences,
+  writeCompanionPreferences,
+} from "./preferences";
 
-import type { CompanionPreferences, UpdateCompanionPreferences } from "./preferences";
+import type {
+  CompanionPreferences,
+  UpdateCompanionPreferences,
+} from "./preferences";
 
-export const useCompanionPreferences = (ownerWindow: Window | null): {
+export const useCompanionPreferences = (
+  ownerWindow: Window | null,
+): {
   preferences: CompanionPreferences;
   ready: boolean;
   updatePreferences: UpdateCompanionPreferences;
 } => {
-  const [state, setState] = useState({ ownerWindow: null as Window | null, preferences: { ...DEFAULT_COMPANION_PREFERENCES }, dirty: false });
+  const [state, setState] = useState({
+    ownerWindow: null as Window | null,
+    preferences: { ...DEFAULT_COMPANION_PREFERENCES },
+    dirty: false,
+  });
 
   useEffect(() => {
-    setState({ ownerWindow, preferences: ownerWindow ? readCompanionPreferences(ownerWindow) : { ...DEFAULT_COMPANION_PREFERENCES }, dirty: false });
+    setState({
+      ownerWindow,
+      preferences: ownerWindow
+        ? readCompanionPreferences(ownerWindow)
+        : { ...DEFAULT_COMPANION_PREFERENCES },
+      dirty: false,
+    });
   }, [ownerWindow]);
 
   useEffect(() => {
@@ -21,10 +40,25 @@ export const useCompanionPreferences = (ownerWindow: Window | null): {
     }
   }, [ownerWindow, state]);
 
-  const updatePreferences = useCallback<UpdateCompanionPreferences>((patch) => {
-    setState((current) => ownerWindow && current.ownerWindow === ownerWindow ? { ...current, preferences: { ...current.preferences, ...patch }, dirty: true } : current);
-  }, [ownerWindow]);
+  const updatePreferences = useCallback<UpdateCompanionPreferences>(
+    (patch) => {
+      setState((current) =>
+        ownerWindow && current.ownerWindow === ownerWindow
+          ? {
+              ...current,
+              preferences: { ...current.preferences, ...patch },
+              dirty: true,
+            }
+          : current,
+      );
+    },
+    [ownerWindow],
+  );
 
   const ready = !!ownerWindow && state.ownerWindow === ownerWindow;
-  return { preferences: ready ? state.preferences : DEFAULT_COMPANION_PREFERENCES, ready, updatePreferences };
+  return {
+    preferences: ready ? state.preferences : DEFAULT_COMPANION_PREFERENCES,
+    ready,
+    updatePreferences,
+  };
 };
