@@ -1,4 +1,9 @@
 {
+  "companion": {
+    "description": "Your drawing companion",
+    "hide": "Hide companion",
+    "show": "Show companion"
+  },
   "labels": {
     "signUp": "Sign up",
     "signIn": "Sign in",

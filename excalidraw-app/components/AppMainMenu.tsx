@@ -17,6 +17,8 @@ import { isExcalidrawPlusSignedUser } from "../app_constants";
 import { saveDebugState } from "./DebugCanvas";
 
 export const AppMainMenu: React.FC<{
+  companionEnabled: boolean;
+  onToggleCompanion: () => void;
   onCollabDialogOpen: () => any;
   isCollaborating: boolean;
   isCollabEnabled: boolean;
@@ -79,6 +81,9 @@ export const AppMainMenu: React.FC<{
       )}
       <MainMenu.Separator />
       <MainMenu.DefaultItems.Preferences />
+      <MainMenu.Item onSelect={props.onToggleCompanion}>
+        {t(props.companionEnabled ? "companion.hide" : "companion.show")}
+      </MainMenu.Item>
       <MainMenu.DefaultItems.ToggleTheme allowSystemTheme theme={props.theme} />
       <MainMenu.ItemCustom>
         <LanguageList style={{ width: "100%" }} />
