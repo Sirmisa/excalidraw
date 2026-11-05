@@ -11,7 +11,6 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
 } from "@excalidraw/excalidraw/tests/test-utils";
 
 import ExcalidrawApp from "../App";
@@ -19,34 +18,21 @@ import { Companion } from "../components/Companion";
 import * as randomness from "../components/companionRandom";
 
 import { mockCompanionEditorGeometry } from "./helpers/companionGeometry";
+import { withOwnedEditor } from "./helpers/ownedEditor";
+import {
+  transport,
+  sceneMessages,
+  withCompanionCollaboration,
+} from "./helpers/companionCollaboration";
 
-const transport = vi.hoisted(() => ({
-  listeners: new Map<string, (...args: unknown[]) => unknown>(),
-  emit: vi.fn(),
-}));
-
-vi.mock("socket.io-client", () => ({
-  default: () => ({
-    id: "local-user",
-    on: (event: string, listener: (...args: unknown[]) => unknown) =>
-      transport.listeners.set(event, listener),
-    once: (event: string, listener: (...args: unknown[]) => unknown) =>
-      transport.listeners.set(event, listener),
-    off: (event: string) => transport.listeners.delete(event),
-    emit: transport.emit,
-    close: () => {},
-  }),
-}));
-vi.mock("../data/firebase", () => ({
-  loadFromFirebase: async () => null,
-  saveToFirebase: async () => {},
-  isSavedToFirebase: () => true,
-  loadFilesFromFirebase: async () => ({ loadedFiles: [], erroredFiles: [] }),
-  saveFilesToFirebase: async () => ({
-    savedFiles: [],
-    erroredFiles: [],
-  }),
-}));
+vi.mock(
+  "socket.io-client",
+  async () => (await import("./helpers/companionCollaboration")).socketMock,
+);
+vi.mock(
+  "../data/firebase",
+  async () => (await import("./helpers/companionCollaboration")).firebaseMock,
+);
 
 const advance = async (milliseconds: number) =>
   act(async () => {
@@ -401,222 +387,167 @@ describe("rare application Companion text", () => {
   });
 
   it("ignores collaborator arrivals and never broadcasts automatic text into an active drawing session", async () => {
-    // Crypto and the socket are browser/service boundaries; the application,
-    // collaboration pipeline, editor and Companion remain production code.
-    const cryptoDescriptor = Object.getOwnPropertyDescriptor(
-      window.crypto,
-      "subtle",
-    );
-    Object.defineProperty(window.crypto, "subtle", {
-      configurable: true,
-      value: {
-        generateKey: async () => ({}),
-        exportKey: async () => ({ k: "sTdLvMC_M3V8_vGa3UVRDg" }),
-        importKey: async () => ({}),
-        encrypt: async (
-          _algorithm: unknown,
-          _key: unknown,
-          data: ArrayBuffer,
-        ) => data,
+    await withCompanionCollaboration(
+      document,
+      () => render(<ExcalidrawApp />),
+      async () => {
+        const { app, store, history } = window.h;
+        vi.useFakeTimers();
+        UI.createElement("rectangle", {
+          x: 100,
+          y: 100,
+          width: 200,
+          height: 100,
+        });
+        await advance(20_001);
+        expect(sceneMessages()).toContainEqual(
+          expect.objectContaining({
+            type: "SCENE_UPDATE",
+            payload: {
+              elements: [expect.objectContaining({ type: "rectangle" })],
+            },
+          }),
+        );
+        restart();
+        act(() => app.updateScene({ appState: { zenModeEnabled: true } }));
+        await advance(600_000);
+        act(() => app.updateScene({ appState: { zenModeEnabled: false } }));
+        const saved = serializeAsJSON(
+          app.getSceneElements(),
+          app.state,
+          app.files,
+          "local",
+        );
+        const undoLength = history.undoStack.length;
+        transport.emit.mockClear();
+        await advance(45_000);
+        await act(async () => {
+          transport.listeners.get("room-user-change")!([
+            "local-user",
+            "remote-user",
+          ]);
+        });
+        expect(app.state.collaborators.size).toBe(2);
+        const increments = vi.fn();
+        const unsubscribe = store.onStoreIncrementEmitter.on(increments);
+        try {
+          await advance(44_999);
+          expect(
+            screen.queryByText("Cookie", { selector: "title" }),
+          ).not.toBeInTheDocument();
+          await advance(1);
+          expect(
+            screen.getByText("Cookie", { selector: "title" }),
+          ).toBeInTheDocument();
+          expect(bubble()).toBeInTheDocument();
+          await advance(8_000);
+          expect(bubble()).toBeNull();
+          expect(sceneMessages()).toEqual([]);
+          expect(increments).not.toHaveBeenCalled();
+          expect(
+            serializeAsJSON(
+              app.getSceneElements(),
+              app.state,
+              app.files,
+              "local",
+            ),
+          ).toBe(saved);
+          expect(history.undoStack).toHaveLength(undoLength);
+        } finally {
+          unsubscribe();
+        }
       },
-    });
-    transport.listeners.clear();
-    transport.emit.mockClear();
-    const rendered = await render(<ExcalidrawApp />);
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Live collaboration..." })[0],
     );
-    fireEvent.click(screen.getByRole("button", { name: "Start session" }));
-    await waitFor(() =>
-      expect(transport.listeners.has("first-in-room")).toBe(true),
-    );
-    await act(async () => {
-      await transport.listeners.get("first-in-room")!();
-    });
-    const sessionDialog = screen
-      .getByRole("button", { name: "Stop session" })
-      .closest('[role="dialog"]')!;
-    fireEvent.keyDown(sessionDialog, { key: "Escape" });
-    await act(async () => {});
-    const { app, store, history } = window.h;
-    vi.useFakeTimers();
-    UI.createElement("rectangle", { x: 100, y: 100, width: 200, height: 100 });
-    await advance(20_001);
-    const sceneMessages = () =>
-      transport.emit.mock.calls
-        .filter(([event]) => event === "server-broadcast")
-        .map(([, , buffer]) => JSON.parse(new TextDecoder().decode(buffer)));
-    expect(sceneMessages()).toContainEqual(
-      expect.objectContaining({
-        type: "SCENE_UPDATE",
-        payload: { elements: [expect.objectContaining({ type: "rectangle" })] },
-      }),
-    );
-    restart();
-    act(() => app.updateScene({ appState: { zenModeEnabled: true } }));
-    await advance(600_000);
-    act(() => app.updateScene({ appState: { zenModeEnabled: false } }));
-    const saved = serializeAsJSON(
-      app.getSceneElements(),
-      app.state,
-      app.files,
-      "local",
-    );
-    const undoLength = history.undoStack.length;
-    transport.emit.mockClear();
-    await advance(45_000);
-    await act(async () => {
-      transport.listeners.get("room-user-change")!([
-        "local-user",
-        "remote-user",
-      ]);
-    });
-    expect(app.state.collaborators.size).toBe(2);
-    const increments = vi.fn();
-    const unsubscribe = store.onStoreIncrementEmitter.on(increments);
-    await advance(44_999);
-    expect(
-      screen.queryByText("Cookie", { selector: "title" }),
-    ).not.toBeInTheDocument();
-    await advance(1);
-    expect(
-      screen.getByText("Cookie", { selector: "title" }),
-    ).toBeInTheDocument();
-    expect(bubble()).toBeInTheDocument();
-    await advance(8_000);
-    expect(bubble()).toBeNull();
-    expect(sceneMessages()).toEqual([]);
-    expect(increments).not.toHaveBeenCalled();
-    expect(
-      serializeAsJSON(app.getSceneElements(), app.state, app.files, "local"),
-    ).toBe(saved);
-    expect(history.undoStack).toHaveLength(undoLength);
-    unsubscribe();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    fireEvent.click(screen.getAllByTitle("Live collaboration...")[0]);
-    fireEvent.click(screen.getByRole("button", { name: "Stop session" }));
-    await act(async () => {});
-    rendered.unmount();
-    window.history.replaceState({}, "", "/");
-    if (cryptoDescriptor) {
-      Object.defineProperty(window.crypto, "subtle", cryptoDescriptor);
-    } else {
-      Reflect.deleteProperty(window.crypto, "subtle");
-    }
   });
 
   it("keeps Strict Mode instances and owned clocks independent, cancels owned bubble deadlines and resets quiet time on remount", async () => {
     reduced = true;
     const application = await render(<ExcalidrawApp />);
-    const iframe = document.createElement("iframe");
-    document.body.append(iframe);
-    const ownerDocument = iframe.contentDocument!;
-    const ownerWindow = iframe.contentWindow! as Window & typeof globalThis;
-    mockCompanionEditorGeometry(ownerWindow);
-    const mountNode = ownerDocument.createElement("div");
-    ownerDocument.body.append(mountNode);
-    const ownedNow = vi.fn(() => window.Date.now() + 3_600_000);
-    class OwnedDate extends Date {
-      static now = ownedNow;
-    }
-    const ownedTimeout = vi.fn((callback: TimerHandler, delay?: number) =>
-      window.setTimeout(callback, delay),
-    );
-    const ownedClear = vi.fn((id: number) => window.clearTimeout(id));
-    Object.defineProperties(ownerWindow, {
-      Date: { value: OwnedDate },
-      matchMedia: { value: window.matchMedia },
-      requestAnimationFrame: {
-        value: window.requestAnimationFrame.bind(window),
+    await withOwnedEditor(
+      document,
+      async ({ ownerDocument, ownerWindow, renderOwned }) => {
+        const ownedNow = vi.fn(() => window.Date.now() + 3_600_000);
+        class OwnedDate extends Date {
+          static now = ownedNow;
+        }
+        const ownedTimeout = vi.fn((callback: TimerHandler, delay?: number) =>
+          window.setTimeout(callback, delay),
+        );
+        const ownedClear = vi.fn((id: number) => window.clearTimeout(id));
+        Object.defineProperties(ownerWindow, {
+          Date: { value: OwnedDate },
+          setTimeout: { value: ownedTimeout },
+          clearTimeout: { value: ownedClear },
+        });
+
+        const ownedEditor = () => (
+          <StrictMode>
+            <Excalidraw ownerDocument={ownerDocument}>
+              <Companion enabled onHide={() => {}} />
+            </Excalidraw>
+          </StrictMode>
+        );
+        let owned = await renderOwned(ownedEditor());
+        vi.useFakeTimers();
+        restart();
+        const setOwnedHidden = (hidden: boolean) => {
+          Object.defineProperty(ownerDocument, "hidden", {
+            configurable: true,
+            value: hidden,
+          });
+          fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
+        };
+        setOwnedHidden(true);
+        setOwnedHidden(false);
+        await advance(300_000);
+        setOwnedHidden(true);
+        await advance(300_000);
+        setOwnedHidden(false);
+        expect(
+          owned.queryByText("Leave a little room around your ideas."),
+        ).not.toBeInTheDocument();
+        await advance(30_000);
+        expect(
+          application.getByText("Leave a little room around your ideas."),
+        ).toBeInTheDocument();
+        expect(
+          owned.queryByText("Leave a little room around your ideas."),
+        ).not.toBeInTheDocument();
+        await advance(59_999);
+        expect(
+          owned.queryByText("Leave a little room around your ideas."),
+        ).not.toBeInTheDocument();
+        await advance(1);
+        expect(
+          owned.getAllByText("Leave a little room around your ideas."),
+        ).toHaveLength(1);
+        expect(ownedNow).toHaveBeenCalled();
+        const dismissalIndex = ownedTimeout.mock.calls
+          .map(([, delay]) => delay)
+          .lastIndexOf(5_000);
+        const dismissalId = ownedTimeout.mock.results[dismissalIndex].value;
+        owned.unmount();
+        expect(ownedClear).toHaveBeenCalledWith(dismissalId);
+        const callCount = ownedTimeout.mock.calls.length;
+        await advance(1_000_000);
+        setOwnedHidden(true);
+        setOwnedHidden(false);
+        expect(ownedTimeout).toHaveBeenCalledTimes(callCount);
+        vi.useRealTimers();
+        owned = await renderOwned(ownedEditor());
+        vi.useFakeTimers();
+        setOwnedHidden(true);
+        setOwnedHidden(false);
+        await advance(599_999);
+        expect(
+          owned.queryByText("Leave a little room around your ideas."),
+        ).not.toBeInTheDocument();
+        await advance(30_001);
+        expect(
+          owned.getAllByText("Leave a little room around your ideas."),
+        ).toHaveLength(1);
+        owned.unmount();
       },
-      cancelAnimationFrame: { value: window.cancelAnimationFrame.bind(window) },
-      ResizeObserver: { value: window.ResizeObserver },
-      setTimeout: { value: ownedTimeout },
-      clearTimeout: { value: ownedClear },
-    });
-    Object.defineProperty(ownerDocument, "fonts", { value: document.fonts });
-    Object.defineProperty(
-      ownerWindow.HTMLCanvasElement.prototype,
-      "getContext",
-      {
-        value: window.HTMLCanvasElement.prototype.getContext,
-      },
     );
-    const ownedEditor = () => (
-      <StrictMode>
-        <Excalidraw ownerDocument={ownerDocument}>
-          <Companion enabled onHide={() => {}} />
-        </Excalidraw>
-      </StrictMode>
-    );
-    let owned = await render(ownedEditor(), {
-      container: mountNode,
-      baseElement: ownerDocument.body,
-    });
-    vi.useFakeTimers();
-    restart();
-    const setOwnedHidden = (hidden: boolean) => {
-      Object.defineProperty(ownerDocument, "hidden", {
-        configurable: true,
-        value: hidden,
-      });
-      fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
-    };
-    setOwnedHidden(true);
-    setOwnedHidden(false);
-    await advance(300_000);
-    setOwnedHidden(true);
-    await advance(300_000);
-    setOwnedHidden(false);
-    expect(
-      owned.queryByText("Leave a little room around your ideas."),
-    ).not.toBeInTheDocument();
-    await advance(30_000);
-    expect(
-      application.getByText("Leave a little room around your ideas."),
-    ).toBeInTheDocument();
-    expect(
-      owned.queryByText("Leave a little room around your ideas."),
-    ).not.toBeInTheDocument();
-    await advance(59_999);
-    expect(
-      owned.queryByText("Leave a little room around your ideas."),
-    ).not.toBeInTheDocument();
-    await advance(1);
-    expect(
-      owned.getAllByText("Leave a little room around your ideas."),
-    ).toHaveLength(1);
-    expect(ownedNow).toHaveBeenCalled();
-    const dismissalIndex = ownedTimeout.mock.calls
-      .map(([, delay]) => delay)
-      .lastIndexOf(5_000);
-    const dismissalId = ownedTimeout.mock.results[dismissalIndex].value;
-    owned.unmount();
-    expect(ownedClear).toHaveBeenCalledWith(dismissalId);
-    const callCount = ownedTimeout.mock.calls.length;
-    await advance(1_000_000);
-    setOwnedHidden(true);
-    setOwnedHidden(false);
-    expect(ownedTimeout).toHaveBeenCalledTimes(callCount);
-    vi.useRealTimers();
-    const remountNode = ownerDocument.createElement("div");
-    ownerDocument.body.append(remountNode);
-    owned = await render(ownedEditor(), {
-      container: remountNode,
-      baseElement: ownerDocument.body,
-    });
-    vi.useFakeTimers();
-    setOwnedHidden(true);
-    setOwnedHidden(false);
-    await advance(599_999);
-    expect(
-      owned.queryByText("Leave a little room around your ideas."),
-    ).not.toBeInTheDocument();
-    await advance(30_001);
-    expect(
-      owned.getAllByText("Leave a little room around your ideas."),
-    ).toHaveLength(1);
-    owned.unmount();
-    iframe.remove();
   });
 });

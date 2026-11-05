@@ -10,7 +10,6 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
 } from "@excalidraw/excalidraw/tests/test-utils";
 
 import ExcalidrawApp from "../App";
@@ -18,34 +17,21 @@ import { Companion } from "../components/Companion";
 import * as randomness from "../components/companionRandom";
 
 import { mockCompanionEditorGeometry } from "./helpers/companionGeometry";
+import { withOwnedEditor } from "./helpers/ownedEditor";
+import {
+  transport,
+  sceneMessages,
+  withCompanionCollaboration,
+} from "./helpers/companionCollaboration";
 
-const transport = vi.hoisted(() => ({
-  listeners: new Map<string, (...args: unknown[]) => unknown>(),
-  emit: vi.fn(),
-}));
-
-vi.mock("socket.io-client", () => ({
-  default: () => ({
-    id: "local-user",
-    on: (event: string, listener: (...args: unknown[]) => unknown) =>
-      transport.listeners.set(event, listener),
-    once: (event: string, listener: (...args: unknown[]) => unknown) =>
-      transport.listeners.set(event, listener),
-    off: (event: string) => transport.listeners.delete(event),
-    emit: transport.emit,
-    close: () => {},
-  }),
-}));
-vi.mock("../data/firebase", () => ({
-  loadFromFirebase: async () => null,
-  saveToFirebase: async () => {},
-  isSavedToFirebase: () => true,
-  loadFilesFromFirebase: async () => ({ loadedFiles: [], erroredFiles: [] }),
-  saveFilesToFirebase: async () => ({
-    savedFiles: [],
-    erroredFiles: [],
-  }),
-}));
+vi.mock(
+  "socket.io-client",
+  async () => (await import("./helpers/companionCollaboration")).socketMock,
+);
+vi.mock(
+  "../data/firebase",
+  async () => (await import("./helpers/companionCollaboration")).firebaseMock,
+);
 
 const advance = async (milliseconds: number) =>
   act(async () => {
@@ -441,197 +427,148 @@ describe("autonomous application Companion routines", () => {
 
   it("owns independent deadlines in an alternate document and cleans up Strict Mode unmount and remount", async () => {
     const application = await render(<ExcalidrawApp />);
-    const iframe = document.createElement("iframe");
-    document.body.append(iframe);
-    const ownerDocument = iframe.contentDocument!;
-    const ownerWindow = iframe.contentWindow! as Window & typeof globalThis;
-    mockCompanionEditorGeometry(ownerWindow);
-    const mountNode = ownerDocument.createElement("div");
-    ownerDocument.body.append(mountNode);
-    Object.defineProperties(ownerWindow, {
-      matchMedia: { value: window.matchMedia },
-      requestAnimationFrame: {
-        value: window.requestAnimationFrame.bind(window),
+    await withOwnedEditor(
+      document,
+      async ({ ownerDocument, ownerWindow, renderOwned }) => {
+        Object.defineProperties(ownerWindow, {
+          setTimeout: {
+            value: (callback: TimerHandler, delay?: number) =>
+              window.setTimeout(callback, delay),
+          },
+          clearTimeout: { value: (id: number) => window.clearTimeout(id) },
+        });
+
+        const ownedEditor = () => (
+          <StrictMode>
+            <Excalidraw ownerDocument={ownerDocument}>
+              <Companion enabled onHide={() => {}} />
+            </Excalidraw>
+          </StrictMode>
+        );
+        let owned = await renderOwned(ownedEditor());
+        vi.useFakeTimers();
+        fireEvent.click(
+          application.getByRole("button", { name: "Hide companion" }),
+        );
+        fireEvent.click(application.getByTestId("main-menu-trigger"));
+        fireEvent.click(
+          application.getByRole("menuitem", { name: "Show companion" }),
+        );
+        const setOwnedHidden = (hidden: boolean) => {
+          Object.defineProperty(ownerDocument, "hidden", {
+            configurable: true,
+            value: hidden,
+          });
+          fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
+        };
+        setOwnedHidden(true);
+        setOwnedHidden(false);
+        await advance(45_000);
+        // Suspending one owning document cannot restart the other instance.
+        setOwnedHidden(true);
+        await advance(45_000);
+        expect(
+          application.getByText("Cookie", { selector: "title" }),
+        ).toBeInTheDocument();
+        expect(
+          owned.queryByRole("img", { name: "Your drawing companion" }),
+        ).not.toBeInTheDocument();
+        setOwnedHidden(false);
+        await advance(89_999);
+        expect(
+          owned.queryByText("Cookie", { selector: "title" }),
+        ).not.toBeInTheDocument();
+        await advance(1);
+        expect(
+          owned.getAllByText("Cookie", { selector: "title" }),
+        ).toHaveLength(1);
+        owned.unmount();
+        await advance(1_000_000);
+        vi.useRealTimers();
+        // A fresh mount has no previous Routine or obsolete deadline.
+        owned = await renderOwned(ownedEditor());
+        vi.useFakeTimers();
+        setOwnedHidden(true);
+        setOwnedHidden(false);
+        await advance(89_999);
+        expect(
+          owned.queryByText("Cookie", { selector: "title" }),
+        ).not.toBeInTheDocument();
+        await advance(1);
+        expect(
+          owned.getAllByText("Cookie", { selector: "title" }),
+        ).toHaveLength(1);
+        owned.unmount();
       },
-      cancelAnimationFrame: { value: window.cancelAnimationFrame.bind(window) },
-      ResizeObserver: { value: window.ResizeObserver },
-      setTimeout: {
-        value: (callback: TimerHandler, delay?: number) =>
-          window.setTimeout(callback, delay),
-      },
-      clearTimeout: { value: (id: number) => window.clearTimeout(id) },
-    });
-    Object.defineProperty(ownerDocument, "fonts", { value: document.fonts });
-    Object.defineProperty(
-      ownerWindow.HTMLCanvasElement.prototype,
-      "getContext",
-      { value: window.HTMLCanvasElement.prototype.getContext },
     );
-    const ownedEditor = () => (
-      <StrictMode>
-        <Excalidraw ownerDocument={ownerDocument}>
-          <Companion enabled onHide={() => {}} />
-        </Excalidraw>
-      </StrictMode>
-    );
-    let owned = await render(ownedEditor(), {
-      container: mountNode,
-      baseElement: ownerDocument.body,
-    });
-    vi.useFakeTimers();
-    fireEvent.click(
-      application.getByRole("button", { name: "Hide companion" }),
-    );
-    fireEvent.click(application.getByTestId("main-menu-trigger"));
-    fireEvent.click(
-      application.getByRole("menuitem", { name: "Show companion" }),
-    );
-    const setOwnedHidden = (hidden: boolean) => {
-      Object.defineProperty(ownerDocument, "hidden", {
-        configurable: true,
-        value: hidden,
-      });
-      fireEvent(ownerDocument, new ownerWindow.Event("visibilitychange"));
-    };
-    setOwnedHidden(true);
-    setOwnedHidden(false);
-    await advance(45_000);
-    // Suspending one owning document cannot restart the other instance.
-    setOwnedHidden(true);
-    await advance(45_000);
-    expect(
-      application.getByText("Cookie", { selector: "title" }),
-    ).toBeInTheDocument();
-    expect(
-      owned.queryByRole("img", { name: "Your drawing companion" }),
-    ).not.toBeInTheDocument();
-    setOwnedHidden(false);
-    await advance(89_999);
-    expect(
-      owned.queryByText("Cookie", { selector: "title" }),
-    ).not.toBeInTheDocument();
-    await advance(1);
-    expect(owned.getAllByText("Cookie", { selector: "title" })).toHaveLength(1);
-    owned.unmount();
-    await advance(1_000_000);
-    vi.useRealTimers();
-    // A fresh mount has no previous Routine or obsolete deadline.
-    const remountNode = ownerDocument.createElement("div");
-    ownerDocument.body.append(remountNode);
-    owned = await render(ownedEditor(), {
-      container: remountNode,
-      baseElement: ownerDocument.body,
-    });
-    vi.useFakeTimers();
-    setOwnedHidden(true);
-    setOwnedHidden(false);
-    await advance(89_999);
-    expect(
-      owned.queryByText("Cookie", { selector: "title" }),
-    ).not.toBeInTheDocument();
-    await advance(1);
-    expect(owned.getAllByText("Cookie", { selector: "title" })).toHaveLength(1);
-    owned.unmount();
-    iframe.remove();
   });
 
   it("ignores collaborator arrivals and never broadcasts routine activity into an active drawing session", async () => {
-    // Crypto and the socket are browser/service boundaries; the application,
-    // collaboration pipeline, editor and Companion remain production code.
-    const cryptoDescriptor = Object.getOwnPropertyDescriptor(
-      window.crypto,
-      "subtle",
-    );
-    Object.defineProperty(window.crypto, "subtle", {
-      configurable: true,
-      value: {
-        generateKey: async () => ({}),
-        exportKey: async () => ({ k: "sTdLvMC_M3V8_vGa3UVRDg" }),
-        importKey: async () => ({}),
-        encrypt: async (
-          _algorithm: unknown,
-          _key: unknown,
-          data: ArrayBuffer,
-        ) => data,
+    await withCompanionCollaboration(
+      document,
+      () => render(<ExcalidrawApp />),
+      async () => {
+        const { app, store, history } = window.h;
+        vi.useFakeTimers();
+        UI.createElement("rectangle", {
+          x: 100,
+          y: 100,
+          width: 200,
+          height: 100,
+        });
+        await advance(20_001);
+        expect(sceneMessages()).toContainEqual(
+          expect.objectContaining({
+            type: "SCENE_UPDATE",
+            payload: {
+              elements: [expect.objectContaining({ type: "rectangle" })],
+            },
+          }),
+        );
+        restart();
+        const saved = serializeAsJSON(
+          app.getSceneElements(),
+          app.state,
+          app.files,
+          "local",
+        );
+        const undoLength = history.undoStack.length;
+        transport.emit.mockClear();
+        await advance(45_000);
+        await act(async () => {
+          transport.listeners.get("room-user-change")!([
+            "local-user",
+            "remote-user",
+          ]);
+        });
+        expect(app.state.collaborators.size).toBe(2);
+        const increments = vi.fn();
+        const unsubscribe = store.onStoreIncrementEmitter.on(increments);
+        try {
+          await advance(44_999);
+          expect(
+            screen.queryByText("Cookie", { selector: "title" }),
+          ).not.toBeInTheDocument();
+          await advance(1);
+          expect(
+            screen.getByText("Cookie", { selector: "title" }),
+          ).toBeInTheDocument();
+          await advance(8_000);
+          expect(sceneMessages()).toEqual([]);
+          expect(increments).not.toHaveBeenCalled();
+          expect(
+            serializeAsJSON(
+              app.getSceneElements(),
+              app.state,
+              app.files,
+              "local",
+            ),
+          ).toBe(saved);
+          expect(history.undoStack).toHaveLength(undoLength);
+        } finally {
+          unsubscribe();
+        }
       },
-    });
-    transport.listeners.clear();
-    transport.emit.mockClear();
-    const rendered = await render(<ExcalidrawApp />);
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Live collaboration..." })[0],
     );
-    fireEvent.click(screen.getByRole("button", { name: "Start session" }));
-    await waitFor(() =>
-      expect(transport.listeners.has("first-in-room")).toBe(true),
-    );
-    await act(async () => {
-      await transport.listeners.get("first-in-room")!();
-    });
-    const sessionDialog = screen
-      .getByRole("button", { name: "Stop session" })
-      .closest('[role="dialog"]')!;
-    fireEvent.keyDown(sessionDialog, { key: "Escape" });
-    await act(async () => {});
-    const { app, store, history } = window.h;
-    vi.useFakeTimers();
-    UI.createElement("rectangle", { x: 100, y: 100, width: 200, height: 100 });
-    await advance(20_001);
-    const sceneMessages = () =>
-      transport.emit.mock.calls
-        .filter(([event]) => event === "server-broadcast")
-        .map(([, , buffer]) => JSON.parse(new TextDecoder().decode(buffer)));
-    expect(sceneMessages()).toContainEqual(
-      expect.objectContaining({
-        type: "SCENE_UPDATE",
-        payload: { elements: [expect.objectContaining({ type: "rectangle" })] },
-      }),
-    );
-    restart();
-    const saved = serializeAsJSON(
-      app.getSceneElements(),
-      app.state,
-      app.files,
-      "local",
-    );
-    const undoLength = history.undoStack.length;
-    transport.emit.mockClear();
-    await advance(45_000);
-    await act(async () => {
-      transport.listeners.get("room-user-change")!([
-        "local-user",
-        "remote-user",
-      ]);
-    });
-    expect(app.state.collaborators.size).toBe(2);
-    const increments = vi.fn();
-    const unsubscribe = store.onStoreIncrementEmitter.on(increments);
-    await advance(44_999);
-    expect(
-      screen.queryByText("Cookie", { selector: "title" }),
-    ).not.toBeInTheDocument();
-    await advance(1);
-    expect(
-      screen.getByText("Cookie", { selector: "title" }),
-    ).toBeInTheDocument();
-    await advance(8_000);
-    expect(sceneMessages()).toEqual([]);
-    expect(increments).not.toHaveBeenCalled();
-    expect(
-      serializeAsJSON(app.getSceneElements(), app.state, app.files, "local"),
-    ).toBe(saved);
-    expect(history.undoStack).toHaveLength(undoLength);
-    unsubscribe();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    fireEvent.click(screen.getAllByTitle("Live collaboration...")[0]);
-    fireEvent.click(screen.getByRole("button", { name: "Stop session" }));
-    await act(async () => {});
-    rendered.unmount();
-    window.history.replaceState({}, "", "/");
-    if (cryptoDescriptor) {
-      Object.defineProperty(window.crypto, "subtle", cryptoDescriptor);
-    } else {
-      Reflect.deleteProperty(window.crypto, "subtle");
-    }
   });
 });
