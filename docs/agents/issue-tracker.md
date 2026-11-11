@@ -25,6 +25,16 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 File issues only into the user's own repo. Never file into `mattpocock/skills` (the repo these skills come from) unless the user owns it. In a fork, `gh` can default to the upstream parent, so before the first `gh issue create` of a session, check the target with `gh repo view --json nameWithOwner` and confirm it with the user if it is not their repo.
 
+## Branches and pull requests
+
+All work stays in the fork; nothing is sent upstream.
+
+- **Before starting an issue**, sync `master` with upstream: `git checkout master && git fetch upstream && git merge upstream/master && git push origin master`. Merge, never rebase: `master` is published and carries fork-only commits. Expect the occasional conflict in `CLAUDE.md`.
+- **One branch per issue**, named `<issue#>-<slug>` (e.g. `42-elbow-arrow-loses-binding`), cut from the freshly synced `master`.
+- **PR target**: `master` on `Sirmisa/excalidraw` (`gh pr create --repo Sirmisa/excalidraw --base master`). The body includes `Closes #<issue#>`.
+- **PR title**: semantic format, `<type>(<scope>): <summary>`, e.g. `fix(editor): keep elbow arrow binding on resize`. The `semantic-pr-title` workflow fails anything else.
+- **Merge**: squash (`gh pr merge --squash`).
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
