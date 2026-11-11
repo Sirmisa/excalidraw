@@ -961,23 +961,35 @@ export const actionChangeStrokeStyle = register<
   ),
 });
 
-export const actionChangeOpacity = register<ExcalidrawElement["opacity"]>({
+export const actionChangeOpacity = register<{
+  opacity: ExcalidrawElement["opacity"];
+  /**
+   * `false` for a step of a slider drag, which is applied without being
+   * captured, `true` once the gesture ends, which captures the whole change
+   * (from the pre-drag opacity) as one undo step
+   */
+  isGestureEnd: boolean;
+}>({
   name: "changeOpacity",
   label: "labels.opacity",
   trackEvent: false,
   perform: (elements, appState, value) => {
+    invariant(value, "actionChangeOpacity: value must be defined");
+    const { opacity, isGestureEnd } = value;
     return {
       elements: changeProperty(
         elements,
         appState,
         (el) =>
           newElementWith(el, {
-            opacity: value,
+            opacity,
           }),
         true,
       ),
-      appState: { ...appState, currentItemOpacity: value },
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      appState: { ...appState, currentItemOpacity: opacity },
+      captureUpdate: isGestureEnd
+        ? CaptureUpdateAction.IMMEDIATELY
+        : CaptureUpdateAction.EVENTUALLY,
     };
   },
   PanelComponent: ({ elements, appState, app, updateData }) => {
@@ -994,7 +1006,8 @@ export const actionChangeOpacity = register<ExcalidrawElement["opacity"]>({
         label={t("labels.opacity")}
         value={opacity ?? appState.currentItemOpacity}
         hasCommonValue={opacity !== null}
-        onChange={updateData}
+        onChange={(opacity) => updateData({ opacity, isGestureEnd: false })}
+        onChangeEnd={(opacity) => updateData({ opacity, isGestureEnd: true })}
         min={0}
         max={100}
         step={10}

@@ -1,11 +1,21 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
+
+import { useStableCallback } from "../hooks/useStableCallback";
 
 import "./Range.scss";
 
 export type RangeProps = {
   label: React.ReactNode;
   value: number;
+  /** called with each new value while the user drags or presses a key */
   onChange: (value: number) => void;
+  /**
+   * called with the final value once a gesture ends: on pointer release
+   * (even outside the slider), after each key press, and when the slider
+   * loses focus with values reported by `onChange` since the last gesture
+   * end. When set, `onChange` is only called for the intermediate values.
+   */
+  onChangeEnd?: (value: number) => void;
   min?: number;
   max?: number;
   step?: number;
@@ -18,6 +28,7 @@ export const Range = ({
   label,
   value,
   onChange,
+  onChangeEnd,
   min = 0,
   max = 100,
   step = 10,
@@ -27,6 +38,31 @@ export const Range = ({
 }: RangeProps) => {
   const progress = (value - min) / (max - min || 1);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  // whether `onChange` reported a value since the gesture last ended
+  const hasPendingChangeRef = useRef(false);
+
+  const endGesture = useStableCallback((value: number) => {
+    hasPendingChangeRef.current = false;
+    onChangeEnd?.(value);
+  });
+
+  // React's `onChange` fires for both native `input` and `change` events, and
+  // for `change` only if the value differs from the last one it saw, which it
+  // doesn't after a drag. Listen to the native `change` event directly so the
+  // gesture end is always reported, exactly once.
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) {
+      return;
+    }
+    const handleChange = () => {
+      endGesture(+input.value);
+    };
+    input.addEventListener("change", handleChange);
+    return () => input.removeEventListener("change", handleChange);
+  }, [endGesture]);
+
   return (
     <label className="control-label">
       {label}
@@ -35,6 +71,7 @@ export const Range = ({
         style={{ ["--range-progress" as string]: progress }}
       >
         <input
+          ref={inputRef}
           style={{
             ["--color-slider-track" as string]: hasCommonValue
               ? undefined
@@ -45,7 +82,19 @@ export const Range = ({
           max={max}
           step={step}
           onChange={(event) => {
+            // the native `change` listener above reports the gesture end
+            if (onChangeEnd && event.nativeEvent.type === "change") {
+              return;
+            }
+            hasPendingChangeRef.current = true;
             onChange(+event.target.value);
+          }}
+          onBlur={(event) => {
+            // focus was lost mid-drag (e.g. window blur) before the `change`
+            // event arrived, so end the gesture here
+            if (hasPendingChangeRef.current) {
+              endGesture(+event.target.value);
+            }
           }}
           value={value}
           className="range-input"
