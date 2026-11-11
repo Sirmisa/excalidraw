@@ -1,4 +1,24 @@
 {
+  "drawingCompanion": {
+    "label": "Drawing companion",
+    "show": "Show drawing companion",
+    "hide": "Hide drawing companion",
+    "tipsEnabled": "Drawing tips",
+    "tipLabel": "Drawing tip",
+    "tips": {
+      "pan": "Hold {{shortcut}} and drag to pan the canvas.",
+      "shortcuts": "Press {{shortcut}} to explore keyboard shortcuts.",
+      "group": "Select elements and press {{shortcut}} to group them.",
+      "undo": "Press {{shortcut}} to undo a change."
+    },
+    "messages": {
+      "drawing": "Working on my masterpiece.",
+      "eating": "A tiny snack break.",
+      "drinking": "A little sip for me.",
+      "sleeping": "Dreaming in doodles.",
+      "bathroom": "Back from my little break."
+    }
+  },
   "labels": {
     "signUp": "Sign up",
     "signIn": "Sign in",

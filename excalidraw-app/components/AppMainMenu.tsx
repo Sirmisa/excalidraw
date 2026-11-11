@@ -2,6 +2,8 @@ import {
   loginIcon,
   ExcalLogo,
   eyeIcon,
+  checkIcon,
+  emptyIcon,
 } from "@excalidraw/excalidraw/components/icons";
 import { useI18n } from "@excalidraw/excalidraw/i18n";
 import { MainMenu } from "@excalidraw/excalidraw/index";
@@ -16,12 +18,19 @@ import { isExcalidrawPlusSignedUser } from "../app_constants";
 
 import { saveDebugState } from "./DebugCanvas";
 
+import type {
+  CompanionPreferences,
+  UpdateCompanionPreferences,
+} from "./drawing-companion/preferences";
+
 export const AppMainMenu: React.FC<{
   onCollabDialogOpen: () => any;
   isCollaborating: boolean;
   isCollabEnabled: boolean;
   theme: Theme | "system";
   refresh: () => void;
+  companionPreferences: CompanionPreferences | null;
+  onCompanionPreferencesChange: UpdateCompanionPreferences;
 }> = React.memo((props) => {
   const { t } = useI18n();
   return (
@@ -79,6 +88,23 @@ export const AppMainMenu: React.FC<{
       )}
       <MainMenu.Separator />
       <MainMenu.DefaultItems.Preferences />
+      <MainMenu.Item
+        icon={props.companionPreferences?.enabled ? checkIcon : emptyIcon}
+        selected={props.companionPreferences?.enabled}
+        disabled={!props.companionPreferences}
+        onSelect={() =>
+          props.companionPreferences &&
+          props.onCompanionPreferencesChange({
+            enabled: !props.companionPreferences.enabled,
+          })
+        }
+      >
+        {t(
+          props.companionPreferences?.enabled
+            ? "drawingCompanion.hide"
+            : "drawingCompanion.show",
+        )}
+      </MainMenu.Item>
       <MainMenu.DefaultItems.ToggleTheme allowSystemTheme theme={props.theme} />
       <MainMenu.ItemCustom>
         <LanguageList style={{ width: "100%" }} />

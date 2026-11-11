@@ -99,6 +99,7 @@ import Collab, {
   isOfflineAtom,
   userToFollowAtom,
 } from "./collab/Collab";
+import { useCompanionPreferences } from "./components/drawing-companion/useCompanionPreferences";
 import { AppFooter } from "./components/AppFooter";
 import { AppMainMenu } from "./components/AppMainMenu";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
@@ -373,6 +374,16 @@ const initializeScene = async (opts: {
 };
 
 const ExcalidrawWrapper = () => {
+  const [companionOwnerWindow, setCompanionOwnerWindow] =
+    useState<Window | null>(null);
+  const companionRootRef = useCallback((node: HTMLDivElement | null) => {
+    setCompanionOwnerWindow(node?.ownerDocument.defaultView ?? null);
+  }, []);
+  const {
+    preferences: companionPreferences,
+    ready: companionPreferencesReady,
+    updatePreferences: updateCompanionPreferences,
+  } = useCompanionPreferences(companionOwnerWindow);
   const excalidrawAPI = useExcalidrawAPI();
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -405,7 +416,7 @@ const ExcalidrawWrapper = () => {
     }, VERSION_TIMEOUT);
   }, []);
 
-  const [, setShareDialogState] = useAtom(shareDialogStateAtom);
+  const [shareDialogState, setShareDialogState] = useAtom(shareDialogStateAtom);
   const [collabAPI] = useAtom(collabAPIAtom);
   const [isCollaborating] = useAtomWithInitialValue(isCollaboratingAtom, () => {
     return isCollaborationLink(window.location.href);
@@ -948,6 +959,7 @@ const ExcalidrawWrapper = () => {
 
   return (
     <div
+      ref={companionRootRef}
       style={{ height: "100%" }}
       className={clsx("excalidraw-app", {
         "is-collaborating": isCollaborating,
@@ -1036,6 +1048,10 @@ const ExcalidrawWrapper = () => {
         }}
       >
         <AppMainMenu
+          companionPreferences={
+            companionPreferencesReady ? companionPreferences : null
+          }
+          onCompanionPreferencesChange={updateCompanionPreferences}
           onCollabDialogOpen={onCollabDialogOpen}
           isCollaborating={isCollaborating}
           isCollabEnabled={isCollabAvailable}
@@ -1066,7 +1082,16 @@ const ExcalidrawWrapper = () => {
             </OverwriteConfirmDialog.Action>
           )}
         </OverwriteConfirmDialog>
-        <AppFooter onChange={() => excalidrawAPI?.refresh()} />
+        <AppFooter
+          onChange={() => excalidrawAPI?.refresh()}
+          companionPreferences={
+            companionPreferencesReady ? companionPreferences : null
+          }
+          onCompanionPreferencesChange={updateCompanionPreferences}
+          companionSuppressed={
+            shareDialogState.isOpen || !!latestShareableLink || !!errorMessage
+          }
+        />
         {excalidrawAPI && <AIComponents excalidrawAPI={excalidrawAPI} />}
 
         <TTDDialogTrigger />

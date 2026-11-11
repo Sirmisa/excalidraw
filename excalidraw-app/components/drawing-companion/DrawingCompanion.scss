@@ -1,0 +1,212 @@
+.excalidraw .drawing-companion {
+  --companion-lavender: #c9bafa;
+  --companion-ink: #42345f;
+  --companion-cheek: #f2a8c9;
+  --companion-accent: #7551b8;
+  --companion-paper: #fff8eb;
+  --companion-door: #c7dedb;
+
+  position: absolute;
+  inset-inline-end: 1rem;
+  bottom: calc(100% + 0.5rem);
+  inline-size: 96px;
+  block-size: 96px;
+  pointer-events: none;
+  z-index: 4;
+
+  .drawing-companion__trigger {
+    display: block;
+    inline-size: 96px;
+    block-size: 96px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 1rem;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: var(--ui-pointerEvents);
+    cursor: pointer;
+
+    &:hover,
+    &:active {
+      background: transparent;
+    }
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  .drawing-companion__sprite {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: hidden;
+  }
+  .drawing-companion__blob {
+    fill: var(--companion-lavender);
+    stroke: var(--companion-ink);
+    stroke-width: 2;
+  }
+  .drawing-companion__body {
+    transform-origin: 48px 80px;
+    animation: companion-breathe 5s ease-in-out infinite;
+  }
+  .drawing-companion__eyes {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: companion-blink 7s infinite;
+  }
+  .drawing-companion__pencil {
+    transform-origin: 55px 80px;
+    animation: companion-scribble 0.65s ease-in-out infinite;
+  }
+  .drawing-companion__snack {
+    transform-origin: 69px 70px;
+    animation: companion-snack 3s ease-in-out infinite;
+  }
+  .drawing-companion__cup {
+    transform-origin: 66px 69px;
+    animation: companion-sip 4s ease-in-out infinite;
+  }
+  .drawing-companion__sleep {
+    animation: companion-sleep 3s ease-in-out infinite;
+  }
+  &[data-pose="sleeping"] .drawing-companion__eyes {
+    animation: none;
+  }
+  &[data-pose="bathroom"] .drawing-companion__body {
+    animation: companion-retreat 10s ease-in-out infinite;
+  }
+
+  .drawing-companion__bubble {
+    position: absolute;
+    inset-inline-end: 0;
+    bottom: calc(100% - 0.5rem);
+    box-sizing: border-box;
+    inline-size: max-content;
+    max-inline-size: min(17rem, calc(100vw - 3rem));
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--color-gray-20);
+    border-radius: 1rem 1rem 0.4rem 1rem;
+    background: var(--island-bg-color);
+    color: var(--color-on-surface);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    text-align: start;
+    pointer-events: none;
+    box-shadow: 0 2px 8px #0000000a;
+  }
+  .drawing-companion__tip-label {
+    display: block;
+    font-weight: 600;
+    margin-block-end: 0.2rem;
+  }
+  .drawing-companion__menu,
+  [data-radix-popper-content-wrapper] {
+    pointer-events: var(--ui-pointerEvents);
+  }
+
+  &[data-paused="true"],
+  &[data-reduced-motion="true"] {
+    &,
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}
+
+.excalidraw.theme--dark .drawing-companion {
+  --companion-lavender: #baaae8;
+  --companion-accent: #c7b4f2;
+  --companion-paper: #eee6d9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .excalidraw .drawing-companion,
+  .excalidraw .drawing-companion * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes companion-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.025, 0.975);
+  }
+}
+@keyframes companion-blink {
+  0%,
+  43%,
+  47%,
+  100% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.08);
+  }
+}
+@keyframes companion-scribble {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+@keyframes companion-snack {
+  0%,
+  75%,
+  100% {
+    transform: translate(0, 0);
+  }
+  30%,
+  50% {
+    transform: translate(-10px, -8px) rotate(-9deg);
+  }
+}
+@keyframes companion-sip {
+  0%,
+  75%,
+  100% {
+    transform: translate(0, 0);
+  }
+  30%,
+  50% {
+    transform: translate(-9px, -8px) rotate(-18deg);
+  }
+}
+@keyframes companion-sleep {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  60% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+@keyframes companion-retreat {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  80% {
+    transform: translateX(25px) scale(0.85);
+  }
+}
+
+// Beat LayerUI's footer-child opt-in without changing shared footer styles.
+.excalidraw .layer-ui__wrapper .footer-center > .drawing-companion {
+  pointer-events: none;
+}
