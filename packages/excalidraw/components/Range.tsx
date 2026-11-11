@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
+
+import { useStableCallback } from "../hooks/useStableCallback";
 
 import "./Range.scss";
 
@@ -37,15 +39,13 @@ export const Range = ({
   const progress = (value - min) / (max - min || 1);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const onChangeEndRef = useRef(onChangeEnd);
-  onChangeEndRef.current = onChangeEnd;
   // whether `onChange` reported a value since the gesture last ended
   const hasPendingChangeRef = useRef(false);
 
-  const endGesture = useCallback((value: number) => {
+  const endGesture = useStableCallback((value: number) => {
     hasPendingChangeRef.current = false;
-    onChangeEndRef.current?.(value);
-  }, []);
+    onChangeEnd?.(value);
+  });
 
   // React's `onChange` fires for both native `input` and `change` events, and
   // for `change` only if the value differs from the last one it saw, which it

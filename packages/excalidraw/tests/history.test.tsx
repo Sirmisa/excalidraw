@@ -2195,9 +2195,11 @@ describe("history", () => {
 
     it("should not add an undo step for a drag ending at its start value", async () => {
       const [rect] = await renderWithSelectedRects(100);
+      const undoStackLength = h.history.undoStack.length;
 
       dragTo(50);
       release();
+      expect(h.history.undoStack.length).toBe(undoStackLength + 1);
 
       // ends where it started
       dragTo(80);
@@ -2206,9 +2208,15 @@ describe("history", () => {
       release();
       expect(API.getElement(rect).opacity).toBe(50);
 
+      // known limitation: the no-op drag still pushes an entry that only bumps
+      // element versions, but undo skips such entries, so the user never
+      // spends an undo press on it
+      expect(h.history.undoStack.length).toBe(undoStackLength + 2);
+
       // a single undo reverts the first drag, not the no-op one
       Keyboard.undo();
       expect(API.getElement(rect).opacity).toBe(100);
+      expect(h.history.undoStack.length).toBe(undoStackLength);
     });
 
     it("should restore each element's own opacity when undoing a drag of several elements", async () => {
