@@ -2258,6 +2258,74 @@ describe("history", () => {
       }
     });
 
+    describe("losing focus mid-drag", () => {
+      /** the slider loses focus (window blur, tab switch) with no `change` */
+      const loseFocus = () => {
+        fireEvent.blur(getSlider());
+      };
+
+      it("should capture the pending drag in one undo step", async () => {
+        const [rect] = await renderWithSelectedRects(100);
+        const undoStackLength = h.history.undoStack.length;
+
+        getSlider().focus();
+        dragTo(70);
+        dragTo(40);
+        loseFocus();
+
+        expect(API.getElement(rect).opacity).toBe(40);
+        expect(h.history.undoStack.length).toBe(undoStackLength + 1);
+
+        Keyboard.undo();
+        expect(API.getElement(rect).opacity).toBe(100);
+      });
+
+      it("should make the next unrelated action its own undo step", async () => {
+        const [rect] = await renderWithSelectedRects(100);
+        const undoStackLength = h.history.undoStack.length;
+
+        getSlider().focus();
+        dragTo(70);
+        dragTo(40);
+        loseFocus();
+
+        togglePopover("Stroke");
+        UI.clickOnTestId("color-red");
+
+        const red = COLOR_PALETTE.red[DEFAULT_ELEMENT_STROKE_COLOR_INDEX];
+        expect(API.getElement(rect).strokeColor).toBe(red);
+        expect(h.history.undoStack.length).toBe(undoStackLength + 2);
+
+        Keyboard.undo();
+        expect(API.getElement(rect).strokeColor).not.toBe(red);
+        expect(API.getElement(rect).opacity).toBe(40);
+
+        Keyboard.undo();
+        expect(API.getElement(rect).opacity).toBe(100);
+      });
+
+      it("should not add an undo step when nothing is pending", async () => {
+        const [rect] = await renderWithSelectedRects(100);
+        const undoStackLength = h.history.undoStack.length;
+
+        // focus, then blur without dragging
+        getSlider().focus();
+        loseFocus();
+        expect(h.history.undoStack.length).toBe(undoStackLength);
+
+        // blur right after a drag that ended normally
+        getSlider().focus();
+        dragTo(70);
+        dragTo(40);
+        release();
+        loseFocus();
+        expect(h.history.undoStack.length).toBe(undoStackLength + 1);
+
+        Keyboard.undo();
+        expect(API.getElement(rect).opacity).toBe(100);
+      });
+    });
+
     // history doesn't track the current item opacity (it isn't part of the
     // observed app state), so undo doesn't restore it, as before
     it("should update the current item opacity along with the drag", async () => {

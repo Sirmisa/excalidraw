@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 
 import "./Range.scss";
 
@@ -9,8 +9,9 @@ export type RangeProps = {
   onChange: (value: number) => void;
   /**
    * called with the final value once a gesture ends: on pointer release
-   * (even outside the slider) and after each key press. When set, `onChange`
-   * is only called for the intermediate values.
+   * (even outside the slider), after each key press, and when the slider
+   * loses focus with values reported by `onChange` since the last gesture
+   * end. When set, `onChange` is only called for the intermediate values.
    */
   onChangeEnd?: (value: number) => void;
   min?: number;
@@ -38,6 +39,13 @@ export const Range = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const onChangeEndRef = useRef(onChangeEnd);
   onChangeEndRef.current = onChangeEnd;
+  // whether `onChange` reported a value since the gesture last ended
+  const hasPendingChangeRef = useRef(false);
+
+  const endGesture = useCallback((value: number) => {
+    hasPendingChangeRef.current = false;
+    onChangeEndRef.current?.(value);
+  }, []);
 
   // React's `onChange` fires for both native `input` and `change` events, and
   // for `change` only if the value differs from the last one it saw, which it
@@ -49,11 +57,11 @@ export const Range = ({
       return;
     }
     const handleChange = () => {
-      onChangeEndRef.current?.(+input.value);
+      endGesture(+input.value);
     };
     input.addEventListener("change", handleChange);
     return () => input.removeEventListener("change", handleChange);
-  }, []);
+  }, [endGesture]);
 
   return (
     <label className="control-label">
@@ -78,7 +86,15 @@ export const Range = ({
             if (onChangeEnd && event.nativeEvent.type === "change") {
               return;
             }
+            hasPendingChangeRef.current = true;
             onChange(+event.target.value);
+          }}
+          onBlur={(event) => {
+            // focus was lost mid-drag (e.g. window blur) before the `change`
+            // event arrived, so end the gesture here
+            if (hasPendingChangeRef.current) {
+              endGesture(+event.target.value);
+            }
           }}
           value={value}
           className="range-input"
