@@ -2109,6 +2109,170 @@ describe("history", () => {
     });
   });
 
+  describe("opacity slider", () => {
+    const getSlider = () =>
+      document.querySelector<HTMLInputElement>('[data-testid="opacity"]')!;
+
+    /** a pointer drag step: the browser fires `input` with each new value */
+    const dragTo = (value: number) => {
+      fireEvent.input(getSlider(), { target: { value: String(value) } });
+    };
+
+    /** the end of a pointer drag: the browser fires one `change` on release */
+    const release = () => {
+      fireEvent.change(getSlider());
+    };
+
+    /** renders the editor with one selected rectangle per opacity given */
+    const renderWithSelectedRects = async (...opacities: number[]) => {
+      await render(<Excalidraw handleKeyboardGlobally={true} />);
+      const rects = opacities.map((opacity) =>
+        API.createElement({ type: "rectangle", opacity }),
+      );
+      API.updateScene({
+        elements: rects,
+        appState: {
+          selectedElementIds: Object.fromEntries(
+            rects.map((rect) => [rect.id, true as const]),
+          ),
+        },
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      });
+      return rects;
+    };
+
+    it("should undo a whole drag in one undo step", async () => {
+      const [rect] = await renderWithSelectedRects(100);
+      const undoStackLength = h.history.undoStack.length;
+
+      for (const value of [90, 80, 70, 60, 50, 40, 30, 20, 10, 0]) {
+        dragTo(value);
+      }
+      release();
+
+      expect(API.getElement(rect).opacity).toBe(0);
+      expect(h.history.undoStack.length).toBe(undoStackLength + 1);
+
+      Keyboard.undo();
+      expect(API.getElement(rect).opacity).toBe(100);
+    });
+
+    it("should redo a whole drag in one redo step", async () => {
+      const [rect] = await renderWithSelectedRects(100);
+
+      for (const value of [70, 40, 0]) {
+        dragTo(value);
+      }
+      release();
+
+      Keyboard.undo();
+      expect(API.getElement(rect).opacity).toBe(100);
+
+      Keyboard.redo();
+      expect(API.getElement(rect).opacity).toBe(0);
+    });
+
+    it("should make two separate drags two undo steps", async () => {
+      const [rect] = await renderWithSelectedRects(100);
+      const undoStackLength = h.history.undoStack.length;
+
+      dragTo(90);
+      dragTo(80);
+      release();
+
+      dragTo(50);
+      dragTo(30);
+      release();
+
+      expect(h.history.undoStack.length).toBe(undoStackLength + 2);
+
+      Keyboard.undo();
+      expect(API.getElement(rect).opacity).toBe(80);
+
+      Keyboard.undo();
+      expect(API.getElement(rect).opacity).toBe(100);
+    });
+
+    it("should not add an undo step for a drag ending at its start value", async () => {
+      const [rect] = await renderWithSelectedRects(100);
+
+      dragTo(50);
+      release();
+
+      // ends where it started
+      dragTo(80);
+      dragTo(30);
+      dragTo(50);
+      release();
+      expect(API.getElement(rect).opacity).toBe(50);
+
+      // a single undo reverts the first drag, not the no-op one
+      Keyboard.undo();
+      expect(API.getElement(rect).opacity).toBe(100);
+    });
+
+    it("should restore each element's own opacity when undoing a drag of several elements", async () => {
+      const [rect1, rect2, rect3] = await renderWithSelectedRects(100, 60, 20);
+
+      dragTo(50);
+      dragTo(0);
+      release();
+
+      expect(API.getElement(rect1).opacity).toBe(0);
+      expect(API.getElement(rect2).opacity).toBe(0);
+      expect(API.getElement(rect3).opacity).toBe(0);
+
+      Keyboard.undo();
+      expect(API.getElement(rect1).opacity).toBe(100);
+      expect(API.getElement(rect2).opacity).toBe(60);
+      expect(API.getElement(rect3).opacity).toBe(20);
+    });
+
+    it("should make each keyboard step its own undo step", async () => {
+      const [rect] = await renderWithSelectedRects(100);
+      const undoStackLength = h.history.undoStack.length;
+
+      /** a key press on the focused slider: `keydown`, `input`, `change` */
+      const pressKey = (key: string, value: number, repeat = false) => {
+        fireEvent.keyDown(getSlider(), { key, repeat });
+        fireEvent.input(getSlider(), { target: { value: String(value) } });
+        fireEvent.change(getSlider());
+      };
+
+      getSlider().focus();
+      pressKey(KEYS.ARROW_LEFT, 90);
+      pressKey(KEYS.PAGE_DOWN, 80);
+      pressKey("Home", 0);
+      pressKey("End", 100);
+      // held key
+      pressKey(KEYS.ARROW_LEFT, 90);
+      pressKey(KEYS.ARROW_LEFT, 80, true);
+      pressKey(KEYS.ARROW_LEFT, 70, true);
+
+      expect(API.getElement(rect).opacity).toBe(70);
+      expect(h.history.undoStack.length).toBe(undoStackLength + 7);
+
+      for (const opacity of [80, 90, 100, 0, 80, 90, 100]) {
+        Keyboard.undo();
+        expect(API.getElement(rect).opacity).toBe(opacity);
+      }
+    });
+
+    // history doesn't track the current item opacity (it isn't part of the
+    // observed app state), so undo doesn't restore it, as before
+    it("should update the current item opacity along with the drag", async () => {
+      await renderWithSelectedRects(100);
+      expect(h.state.currentItemOpacity).toBe(100);
+
+      dragTo(60);
+      expect(h.state.currentItemOpacity).toBe(60);
+
+      dragTo(30);
+      release();
+      expect(h.state.currentItemOpacity).toBe(30);
+    });
+  });
+
   describe("multiplayer undo/redo", () => {
     // Util to check that we end up in the same state after series of undo / redo
     function runTwice(callback: () => void) {
