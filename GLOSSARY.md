@@ -66,6 +66,10 @@ _Avoid_: template, stencil, asset
 Whether a change to the scene is recorded for undo: immediately, eventually or never.
 _Avoid_: record, commit
 
+**Undo step**:
+The set of changes that a single undo reverts.
+_Avoid_: history entry, undo entry
+
 **Collaboration room**:
 A live, end-to-end encrypted session where several people edit one scene.
 _Avoid_: session, live share
